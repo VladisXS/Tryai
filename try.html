@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 800px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 18px;
+            font-size: 16px;
+            line-height: 1.4;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .user-message {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .bot-message {
+            background: #f0f2f5;
+            color: #333;
+            align-self: flex-start;
+            border: 1px solid #e0e0e0;
+        }
+
+        .input-container {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 15px;
+        }
+
+        .model-select {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            min-width: 150px;
+            background: white;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .message-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-button {
+            padding: 15px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.3s;
+            min-width: 100px;
+        }
+
+        .send-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #666;
+            font-style: italic;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .typing-cursor {
+            animation: blink 1s infinite;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .status {
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 14px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            🤖 Ollama AI Chat
+        </div>
+
+        <div id="status" class="status">
+            Підключення до Ollama...
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot-message">
+                Привіт! Я готовий допомогти вам. Задавайте будь-які питання! 🚀
+            </div>
+        </div>
+
+        <div class="input-container">
+            <select id="modelSelect" class="model-select">
+                <option value="llama2">Llama 2</option>
+                <option value="mistral">Mistral</option>
+                <option value="codellama">Code Llama</option>
+                <option value="neural-chat">Neural Chat</option>
+            </select>
+
+            <input
+                type="text"
+                id="messageInput"
+                class="message-input"
+                placeholder="Введіть ваше повідомлення..."
+                onkeypress="handleKeyPress(event)"
+            >
+
+            <button id="sendButton" class="send-button" onclick="sendMessage()">
+                Надіслати
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const OLLAMA_API_URL = 'http://localhost:11434';
+        let isLoading = false;
+
+        // Перевірка підключення до Ollama
+        async function checkOllamaConnection() {
+            try {
+                console.log('Перевіряю підключення до Ollama...');
+                const response = await fetch(`${OLLAMA_API_URL}/api/tags`);
+                console.log('Відповідь сервера:', response.status);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Дані від сервера:', data);
+
+                    if (data.models && data.models.length > 0) {
+                        updateStatus(`Підключено! Доступні моделі: ${data.models.map(m => m.name).join(', ')}`, false);
+
+                        // Оновити список моделей в селекті
+                        const modelSelect = document.getElementById('modelSelect');
+                        modelSelect.innerHTML = '';
+                        data.models.forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model.name;
+                            option.textContent = model.name;
+                            modelSelect.appendChild(option);
+                        });
+                    } else {
+                        updateStatus('Ollama запущений, але моделі не знайдено. Завантажте модель: ollama pull llama2', true);
+                    }
+                    return true;
+                } else {
+                    updateStatus(`Помилка HTTP ${response.status}. Перевірте чи запущений Ollama на localhost:11434`, true);
+                    return false;
+                }
+            } catch (error) {
+                console.error('Помилка підключення:', error);
+                updateStatus('Не вдалося підключитися до Ollama. Переконайтеся, що сервер запущений (ollama serve)', true);
+                return false;
+            }
+        }
+
+        function updateStatus(message, isError = false) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = isError ? 'status error' : 'status';
+        }
+
+        function addMessage(content, isUser = false) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            messageDiv.textContent = content;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return messageDiv;
+        }
+
+        function createStreamingMessage() {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot-message';
+            messageDiv.innerHTML = '<span class="typing-cursor">|</span>';
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return messageDiv;
+        }
+
+        function appendToStreamingMessage(messageDiv, text) {
+            // Видалити курсор якщо він є
+            const cursor = messageDiv.querySelector('.typing-cursor');
+            if (cursor) cursor.remove();
+
+            // Додати текст
+            messageDiv.textContent += text;
+
+            // Додати курсор знову
+            const newCursor = document.createElement('span');
+            newCursor.className = 'typing-cursor';
+            newCursor.textContent = '|';
+            messageDiv.appendChild(newCursor);
+
+            // Прокрутити вниз
+            const messagesContainer = document.getElementById('chatMessages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function finishStreamingMessage(messageDiv) {
+            // Видалити курсор
+            const cursor = messageDiv.querySelector('.typing-cursor');
+            if (cursor) cursor.remove();
+        }
+
+        function showLoading() {
+            const messagesContainer = document.getElementById('chatMessages');
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message bot-message loading';
+            loadingDiv.id = 'loading-message';
+            loadingDiv.innerHTML = '<div class="spinner"></div> Обробляю відповідь...';
+            messagesContainer.appendChild(loadingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function hideLoading() {
+            const loadingMessage = document.getElementById('loading-message');
+            if (loadingMessage) {
+                loadingMessage.remove();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            const modelSelect = document.getElementById('modelSelect');
+
+            const message = input.value.trim();
+            if (!message || isLoading) return;
+
+            isLoading = true;
+            sendButton.disabled = true;
+            sendButton.textContent = 'Відправляю...';
+
+            // Додати повідомлення користувача
+            addMessage(message, true);
+            input.value = '';
+
+            // Створити повідомлення для streaming відповіді
+            const streamingMessage = createStreamingMessage();
+
+            try {
+                console.log('Відправляю streaming запит до Ollama...', {
+                    model: modelSelect.value,
+                    prompt: message
+                });
+
+                const response = await fetch(`${OLLAMA_API_URL}/api/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: modelSelect.value,
+                        prompt: message,
+                        stream: true  // Увімкнути streaming!
+                    }),
+                });
+
+                console.log('Статус відповіді:', response.status);
+
+                if (!response.ok) {
+                    let errorMessage = `HTTP помилка ${response.status}`;
+
+                    if (response.status === 404) {
+                        errorMessage = `Модель "${modelSelect.value}" не знайдена. Завантажте її: ollama pull ${modelSelect.value}`;
+                    } else if (response.status === 500) {
+                        errorMessage = 'Внутрішня помилка сервера Ollama';
+                    }
+
+                    throw new Error(errorMessage);
+                }
+
+                // Читаємо streaming відповідь
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { value, done } = await reader.read();
+
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.trim() === '') continue;
+
+                        try {
+                            const data = JSON.parse(line);
+
+                            if (data.response) {
+                                // Додати новий текст до повідомлення
+                                appendToStreamingMessage(streamingMessage, data.response);
+                            }
+
+                            if (data.done) {
+                                // Завершити streaming
+                                finishStreamingMessage(streamingMessage);
+                                console.log('Streaming завершено');
+                            }
+
+                        } catch (e) {
+                            console.warn('Не вдалося розпарсити JSON:', line);
+                        }
+                    }
+                }
+
+            } catch (error) {
+                console.error('Помилка:', error);
+
+                // Видалити streaming повідомлення і показати помилку
+                streamingMessage.remove();
+                addMessage(`Помилка: ${error.message}`);
+
+                // Додаткові поради для користувача
+                if (error.message.includes('404') || error.message.includes('не знайдена')) {
+                    addMessage('💡 Спробуйте: 1) ollama pull llama2, 2) Перевірте назву моделі, 3) Перезапустіть ollama serve');
+                }
+            }
+
+            isLoading = false;
+            sendButton.disabled = false;
+            sendButton.textContent = 'Надіслати';
+            input.focus();
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        // Ініціалізація при завантаженні сторінки
+        window.addEventListener('load', () => {
+            checkOllamaConnection();
+            document.getElementById('messageInput').focus();
+        });
+    </script>
+</body>
+</html>
